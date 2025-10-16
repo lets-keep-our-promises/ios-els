@@ -4,7 +4,7 @@ import UserNotifications
 
 class DashBoardViewModel: ObservableObject {
     private let motionManager = CMHeadphoneMotionManager()
-    @Published var graphDataModel = DataModel() // 공유 데이터 모델
+    @Published var graphDataModel = DataModel()
     @Published var extendedGraphDataModel = ExtendedDataModel()
     
     @Published var pitch: Double = 0
@@ -22,6 +22,10 @@ class DashBoardViewModel: ObservableObject {
     @Published var formattedConnectTime = "00:00"
     
     @Published var filteredForwardAcceleration: Double = 0
+    
+    // 🆕 실시간 추적을 위한 구간별 시간 측정
+    @Published var currentIntervalNormalTime: Double = 0.0
+    @Published var currentIntervalAbnormalTime: Double = 0.0
     
     private var totalTime = 0.0
     @Published var normalTime = 0.0
@@ -51,6 +55,19 @@ class DashBoardViewModel: ObservableObject {
         startMonitoringPosture()
         scheduleMidnightReset()
         requestNotificationAuthorization()
+    }
+    
+    // 🆕 구간별 시간을 초기화하는 메서드 (그래프에서 10초마다 호출)
+    func resetCurrentInterval() {
+        currentIntervalNormalTime = 0.0
+        currentIntervalAbnormalTime = 0.0
+    }
+    
+    // 🆕 현재 구간의 비정상 자세 비율 반환 (0.0 ~ 1.0)
+    func getCurrentAbnormalRatio() -> Double {
+        let totalInterval = currentIntervalNormalTime + currentIntervalAbnormalTime
+        guard totalInterval > 0 else { return 0.0 }
+        return currentIntervalAbnormalTime / totalInterval
     }
         
     func setupMotionManager() {
@@ -83,19 +100,7 @@ class DashBoardViewModel: ObservableObject {
             referenceAttitude = currentAttitude.copy() as? CMAttitude
             referencePitch = pitch
             referenceRoll = roll
-            DispatchQueue.main.async {
-                self.resetPostureState()
-            }
         }
-    }
-    
-    private func resetPostureState() {
-        self.normalTime = 0.0
-        self.abnormalTime = 0.0
-        self.abnormalPostureDuration = 0.0
-        self.formattedNormalTime = "00:00"
-        self.formattedAbnormalTime = "00:00"
-        self.posture = true  
     }
     
     func stopMonitoringPosture() {
@@ -155,10 +160,10 @@ extension DashBoardViewModel {
         
         DispatchQueue.main.async {
             if pitchDiff > pitchThreshold || rollDiff > rollThreshold || yawDiff > yawThreshold {
-                        self.posture = false
-                    } else {
-                        self.posture = true
-                    }
+                self.posture = false
+            } else {
+                self.posture = true
+            }
         }
         
         detectTurtleNeck(using: currentMotion)
@@ -205,15 +210,16 @@ extension DashBoardViewModel {
             if currentTime.timeIntervalSince(self.lastMotionUpdateTime) >= self.pauseThreshold {
                 self.isPaused = true
                 print("Pause 상태 - 자세 변화 없음")
-                self.abnormalPostureDuration = 0.0
             } else {
                 DispatchQueue.main.async {
                     self.connectTime += 0.5
                     self.isPaused = false
                     self.formattedConnectTime = TimeFormatter.formattedtime(from: self.connectTime)
+                    
                     if self.isAbnormalPosture() {
                         print("비정상 자세")
                         self.abnormalTime += 0.5
+                        self.currentIntervalAbnormalTime += 0.5  // 🆕 구간별 비정상 시간 누적
                         self.formattedAbnormalTime = TimeFormatter.formattedtime(from: self.abnormalTime)
                         self.posture = false
 
@@ -230,6 +236,7 @@ extension DashBoardViewModel {
                     } else {
                         print("정상 자세")
                         self.normalTime += 0.5
+                        self.currentIntervalNormalTime += 0.5  // 🆕 구간별 정상 시간 누적
                         self.formattedNormalTime = TimeFormatter.formattedtime(from: self.normalTime)
                         self.posture = true
 
@@ -266,5 +273,7 @@ extension DashBoardViewModel {
         normalTime = 0.0
         abnormalTime = 0.0
         abnormalPostureDuration = 0.0
+        currentIntervalNormalTime = 0.0  // 🆕
+        currentIntervalAbnormalTime = 0.0  // 🆕
     }
 }

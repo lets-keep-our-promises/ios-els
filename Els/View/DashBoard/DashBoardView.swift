@@ -70,7 +70,7 @@ struct DashBoardView: View {
                                     .background(Color.white)
                                     .cornerRadius(20)
                                 
-                                g()
+                                DashBoardWatherView()
                                     .frame(width: 190,height: 265)
                                     .background(Color.red)
                                     .cornerRadius(30)
@@ -100,12 +100,3 @@ struct DashBoardView: View {
         .frame(width: 850, height: 600)
 }
 
-struct g : View {
-    var body: some View {
-        VStack{
-            Image("ICT")
-                .resizable()
-                .scaledToFill()
-        }
-    }
-}
